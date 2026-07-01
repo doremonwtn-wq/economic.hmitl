@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fixed Income Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #06101d;
+      --surface:    #0c1a2c;
+      --surface-hi: #112236;
+      --border:     #1a3352;
+      --border-hi:  #254d7a;
+      --text:       #dceeff;
+      --text-2:     #6a90b8;
+      --text-3:     #334d68;
+      --accent:     #3d85f0;
+      --accent-glow: rgba(61,133,240,0.14);
+      --green:      #10d4a0;
+      --red:        #f06060;
+    }
+
+    body {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2.5rem;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hdr-left { display: flex; align-items: center; gap: 0.9rem; }
+
+    .hdr-badge {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--accent), #60a5fa);
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-size: 11px; font-weight: 800; color: #fff;
+      letter-spacing: 0.03em; flex-shrink: 0;
+    }
+
+    .hdr-title { font-size: 14.5px; font-weight: 700; color: var(--text); }
+    .hdr-sub   { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+    .hdr-right { display: flex; align-items: center; gap: 1.25rem; }
+
+    .hdr-meta { text-align: right; }
+    .hdr-meta .date { font-size: 12.5px; font-weight: 600; color: var(--text); }
+    .hdr-meta .time { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: blink 2.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    /* ── Layout ──────────────────────────────────────────────────────────────── */
+    main {
+      padding: 1.75rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* ── KPI Cards ───────────────────────────────────────────────────────────── */
+    .cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.3rem 1.4rem 1.2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Left accent bar — different colour per card */
+    .card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0; width: 3px;
+      border-radius: 10px 0 0 10px;
+    }
+    .card:nth-child(1)::before { background: var(--accent); }
+    .card:nth-child(2)::before { background: #a78bfa; }
+    .card:nth-child(3)::before { background: var(--green); }
+    .card:nth-child(4)::before { background: #f59e0b; }
+
+    .card-lbl {
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-2); margin-bottom: 0.55rem;
+    }
+
+    .card-val {
+      font-size: 2rem; font-weight: 800;
+      line-height: 1; color: var(--text); letter-spacing: -0.5px;
+    }
+    .card-val small { font-size: 1rem; font-weight: 500; color: var(--text-2); }
+
+    .card-note { font-size: 11px; font-weight: 500; margin-top: 0.45rem; }
+    .up  { color: var(--green); }
+    .dn  { color: var(--red); }
+    .dim { color: var(--text-2); }
+
+    /* ── Panels ──────────────────────────────────────────────────────────────── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.4rem 1.6rem;
+    }
+
+    .panel-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .panel-title {
+      font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--text-2);
+    }
+
+    .panel-tag {
+      font-size: 10px; font-weight: 600;
+      color: var(--text-3);
+      background: var(--surface-hi);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 9px;
+    }
+
+    /* ── Charts Row ──────────────────────────────────────────────────────────── */
+    .charts-row { display: grid; grid-template-columns: 3fr 2fr; gap: 1rem; }
+
+    /* ── Donut ───────────────────────────────────────────────────────────────── */
+    .donut-wrap   { display: flex; align-items: center; gap: 2rem; }
+    .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 0.8rem; }
+    #donutSvg     { flex-shrink: 0; }
+
+    .legend-row {
+      display: flex; align-items: center;
+      gap: 0.55rem; font-size: 12.5px; color: var(--text);
+    }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .legend-pct { margin-left: auto; color: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* ── Bond Calculator ─────────────────────────────────────────────────────── */
+    .calc-panel { border-color: var(--border-hi); }
+
+    .calc-form {
+      display: grid;
+      grid-template-columns: 2.2fr 1fr 1fr 1fr;
+      gap: 0.85rem 1rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .form-field label {
+      display: block;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-2); margin-bottom: 0.32rem;
+    }
+
+    .form-field input,
+    .form-field select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      font-size: 13px; font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-field input:focus,
+    .form-field select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .form-field input::placeholder { color: var(--text-3); }
+    .form-field select option       { background: var(--surface); }
+
+    .form-field input[type=number]::-webkit-inner-spin-button,
+    .form-field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; appearance: none; }
+    .form-field input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+    /* Action row below the form */
+    .calc-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      min-height: 38px;
+    }
+
+    .btn-primary {
+      padding: 0.5rem 1.5rem;
+      background: var(--accent);
+      color: #fff;
+      border: none; border-radius: 7px;
+      font-size: 12.5px; font-weight: 700; font-family: inherit;
+      cursor: pointer; letter-spacing: 0.01em;
+      transition: opacity 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    .btn-primary:hover  { opacity: 0.85; }
+    .btn-primary:active { transform: scale(0.97); }
+
+    .calc-error {
+      font-size: 12px; color: var(--red); display: none;
+    }
+
+    /* Results inline strip */
+    .calc-results {
+      flex: 1;
+      display: none;
+      align-items: center;
+      gap: 1.1rem;
+      flex-wrap: wrap;
+    }
+
+    .vdiv {
+      width: 1px; height: 28px;
+      background: var(--border); flex-shrink: 0;
+    }
+
+    .res-item { display: flex; flex-direction: column; gap: 2px; }
+
+    .res-lbl {
+      font-size: 9.5px; font-weight: 600;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--text-3);
+    }
+
+    .res-val {
+      font-size: 15px; font-weight: 700;
+      color: #60a5fa;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.2px;
+    }
+
+    .btn-secondary {
+      margin-left: auto;
+      padding: 0.45rem 1rem;
+      background: transparent;
+      color: var(--green);
+      border: 1px solid var(--green);
+      border-radius: 7px;
+      font-size: 12px; font-weight: 600; font-family: inherit;
+      cursor: pointer; flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-secondary:hover { background: var(--green); color: #06101d; }
+
+    /* ── Holdings Table ──────────────────────────────────────────────────────── */
+    .tbl-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .tbl-hdr {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .tbl-hdr-title {
+      font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--text-2);
+    }
+
+    .pill {
+      font-size: 10px; font-weight: 700;
+      color: #93c5fd;
+      background: rgba(61,133,240,0.12);
+      border: 1px solid rgba(61,133,240,0.2);
+      border-radius: 999px;
+      padding: 2px 10px;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      padding: 0.6rem 1.4rem;
+      text-align: left;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--text-3);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    thead th.r { text-align: right; }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(26,51,82,0.5);
+      transition: background 0.1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:nth-child(even) { background: rgba(17,34,54,0.45); }
+    tbody tr:hover            { background: rgba(61,133,240,0.05); }
+
+    tbody td {
+      padding: 0.72rem 1.4rem;
+      font-size: 13px; color: var(--text);
+    }
+    td.r {
+      text-align: right; font-variant-numeric: tabular-nums;
+      font-size: 12.5px; color: var(--text-2);
+    }
+    td.issuer { font-weight: 500; color: var(--text); }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .b-gov  { background: rgba(61,133,240,0.14); color: #93c5fd; border: 1px solid rgba(61,133,240,0.22); }
+    .b-corp { background: rgba(249,115,22,0.14);  color: #fdba74; border: 1px solid rgba(249,115,22,0.22); }
+    .b-muni { background: rgba(16,212,160,0.12);  color: #5eead4; border: 1px solid rgba(16,212,160,0.2); }
+
+    .new-row { animation: rowFlash 1.2s ease; }
+    @keyframes rowFlash {
+      from { background: rgba(61,133,240,0.14); }
+      to   { background: transparent; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="hdr-left">
+    <div class="hdr-badge">FI</div>
+    <div>
+      <div class="hdr-title">Fixed Income Dashboard</div>
+      <div class="hdr-sub">Portfolio Overview &mdash; USD</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-meta">
+      <div class="date" id="hdrDate"></div>
+      <div class="time">As of market close</div>
+    </div>
+    <div class="live-dot" title="Live data"></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── KPI Cards ──────────────────────────────────────────────────────────── -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-lbl">Portfolio Value</div>
+      <div class="card-val">$1.32<small>M</small></div>
+      <div class="card-note up">+$4,210 today</div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Avg Yield to Maturity</div>
+      <div class="card-val">4.58<small>%</small></div>
+      <div class="card-note dn">-0.03% vs prev close</div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Avg Modified Duration</div>
+      <div class="card-val">3.65<small> yrs</small></div>
+      <div class="card-note dim">Interest rate sensitivity</div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">DV01</div>
+      <div class="card-val">$482</div>
+      <div class="card-note dim">Per 1 bp rate move</div>
+    </div>
+  </div>
+
+  <!-- ── Charts Row ─────────────────────────────────────────────────────────── -->
+  <div class="charts-row">
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-title">US Treasury Yield Curve</div>
+        <div class="panel-tag">Reference Rates</div>
+      </div>
+      <svg id="yieldSvg" width="100%" viewBox="0 0 540 200" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-title">Asset Allocation</div>
+        <div class="panel-tag">3 Classes</div>
+      </div>
+      <div class="donut-wrap">
+        <svg id="donutSvg" width="130" height="130" viewBox="0 0 130 130"></svg>
+        <div class="donut-legend" id="donutLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bond Calculator ────────────────────────────────────────────────────── -->
+  <div class="panel calc-panel">
+    <div class="panel-hdr">
+      <div class="panel-title">Bond Calculator</div>
+      <div class="panel-tag">YTM &amp; Duration</div>
+    </div>
+
+    <div class="calc-form">
+      <!-- Row 1 -->
+      <div class="form-field">
+        <label>Issuer</label>
+        <input id="cIssuer" type="text" placeholder="e.g. US Treasury" />
+      </div>
+      <div class="form-field">
+        <label>Type</label>
+        <select id="cType">
+          <option value="gov">Government</option>
+          <option value="corp">Corporate</option>
+          <option value="muni">Municipal</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Face Value</label>
+        <input id="cFace" type="number" value="100" min="1" />
+      </div>
+      <div class="form-field">
+        <label>Coupon Rate (%)</label>
+        <input id="cCoupon" type="number" placeholder="e.g. 4.500" step="0.001" min="0" />
+      </div>
+      <!-- Row 2 -->
+      <div class="form-field">
+        <label>Maturity Date</label>
+        <input id="cMaturity" type="date" />
+      </div>
+      <div class="form-field">
+        <label>Clean Price</label>
+        <input id="cPrice" type="number" placeholder="e.g. 98.50" step="0.01" min="0.01" />
+      </div>
+      <div class="form-field">
+        <label>Pay Frequency</label>
+        <select id="cFreq">
+          <option value="2">Semi-Annual</option>
+          <option value="1">Annual</option>
+          <option value="4">Quarterly</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Notional ($)</label>
+        <input id="cNotional" type="number" value="100000" min="1" />
+      </div>
+    </div>
+
+    <div class="calc-actions">
+      <button class="btn-primary" onclick="calculateBond()">Calculate</button>
+      <span class="calc-error" id="calcError"></span>
+
+      <div class="calc-results" id="calcResults">
+        <div class="res-item">
+          <div class="res-lbl">YTM</div>
+          <div class="res-val" id="resYTM">—</div>
+        </div>
+        <div class="vdiv"></div>
+        <div class="res-item">
+          <div class="res-lbl">Macaulay Duration</div>
+          <div class="res-val" id="resMacDur">—</div>
+        </div>
+        <div class="vdiv"></div>
+        <div class="res-item">
+          <div class="res-lbl">Modified Duration</div>
+          <div class="res-val" id="resModDur">—</div>
+        </div>
+        <div class="vdiv"></div>
+        <div class="res-item">
+          <div class="res-lbl">DV01</div>
+          <div class="res-val" id="resDV01">—</div>
+        </div>
+        <button class="btn-secondary" onclick="addToHoldings()">+ Add to Holdings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Holdings Table ─────────────────────────────────────────────────────── -->
+  <div class="tbl-panel" id="holdingsPanel">
+    <div class="tbl-hdr">
+      <span class="tbl-hdr-title">Bond Holdings</span>
+      <span class="pill" id="tblCount">7 positions</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Issuer</th>
+          <th>Type</th>
+          <th class="r">Coupon</th>
+          <th class="r">Maturity</th>
+          <th class="r">Price</th>
+          <th class="r">YTM</th>
+          <th class="r">Mod. Duration</th>
+          <th class="r">Mkt Value</th>
+        </tr>
+      </thead>
+      <tbody id="bondTbody"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  document.getElementById('hdrDate').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs) {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  }
+  function svgTxt(tag, attrs, text) {
+    const e = svgEl(tag, attrs); e.textContent = text; return e;
+  }
+
+  // ── Yield Curve ───────────────────────────────────────────────────────────────
+  const curve = [
+    { label:'3M', y:5.25 }, { label:'6M',  y:5.20 }, { label:'1Y',  y:4.90 },
+    { label:'2Y', y:4.60 }, { label:'5Y',  y:4.30 }, { label:'10Y', y:4.45 },
+    { label:'20Y',y:4.75 }, { label:'30Y', y:4.65 },
+  ];
+
+  (function drawCurve() {
+    const svg = document.getElementById('yieldSvg');
+    const W=540, H=200, PL=44, PR=12, PT=16, PB=28;
+    const cW=W-PL-PR, cH=H-PT-PB, YMIN=4.0, YMAX=5.5, n=curve.length;
+    const px = i => PL + (i/(n-1)) * cW;
+    const py = v => PT + (1-(v-YMIN)/(YMAX-YMIN)) * cH;
+
+    // Grid
+    [4.0,4.5,5.0,5.5].forEach(v => {
+      svg.append(
+        svgEl('line', { x1:PL, x2:W-PR, y1:py(v), y2:py(v), stroke:'#1a3352', 'stroke-width':1 }),
+        svgTxt('text', { x:PL-6, y:py(v)+4, 'text-anchor':'end', fill:'#334d68', 'font-size':10 }, v.toFixed(1)+'%')
+      );
+    });
+
+    // Gradient fill
+    const defs = document.createElementNS(NS,'defs');
+    const grad = document.createElementNS(NS,'linearGradient');
+    grad.id = 'curveGrad'; grad.setAttribute('x1','0'); grad.setAttribute('y1','0');
+    grad.setAttribute('x2','0'); grad.setAttribute('y2','1');
+    const s1 = document.createElementNS(NS,'stop');
+    s1.setAttribute('offset','0%'); s1.setAttribute('stop-color','#3d85f0'); s1.setAttribute('stop-opacity','0.2');
+    const s2 = document.createElementNS(NS,'stop');
+    s2.setAttribute('offset','100%'); s2.setAttribute('stop-color','#3d85f0'); s2.setAttribute('stop-opacity','0');
+    grad.append(s1,s2); defs.append(grad); svg.append(defs);
+
+    const pts = curve.map((d,i) => `${px(i)},${py(d.y)}`).join(' ');
+    svg.append(svgEl('polygon', {
+      points: `${px(0)},${H-PB} ${pts} ${px(n-1)},${H-PB}`,
+      fill: 'url(#curveGrad)'
+    }));
+
+    const pathD = curve.map((p,i) => `${i?'L':'M'} ${px(i)} ${py(p.y)}`).join(' ');
+    svg.append(svgEl('path', { d:pathD, fill:'none', stroke:'#3d85f0', 'stroke-width':'2', 'stroke-linejoin':'round' }));
+
+    curve.forEach((p,i) => {
+      const cx=px(i), cy=py(p.y);
+      svg.append(
+        svgEl('circle', { cx, cy, r:3.5, fill:'#0c1a2c', stroke:'#3d85f0', 'stroke-width':2 }),
+        svgTxt('text', { x:cx, y:cy-9, 'text-anchor':'middle', fill:'#60a5fa', 'font-size':9, 'font-weight':600 }, p.y.toFixed(2)+'%'),
+        svgTxt('text', { x:cx, y:H-PB+15, 'text-anchor':'middle', fill:'#334d68', 'font-size':10 }, p.label)
+      );
+    });
+  })();
+
+  // ── Donut Chart ───────────────────────────────────────────────────────────────
+  const alloc = [
+    { label:'Government', pct:58, color:'#3d85f0' },
+    { label:'Corporate',  pct:32, color:'#f97316' },
+    { label:'Municipal',  pct:10, color:'#10d4a0' },
+  ];
+
+  (function drawDonut() {
+    const svg = document.getElementById('donutSvg');
+    const cx=65, cy=65, R=50, r=33, GAP=0.03;
+    let angle = -Math.PI/2;
+
+    alloc.forEach(seg => {
+      const sweep = (seg.pct/100)*2*Math.PI;
+      const a1=angle+GAP, a2=angle+sweep-GAP;
+      const large = sweep-2*GAP > Math.PI ? 1 : 0;
+      const [x1,y1]=[cx+R*Math.cos(a1), cy+R*Math.sin(a1)];
+      const [x2,y2]=[cx+R*Math.cos(a2), cy+R*Math.sin(a2)];
+      const [x3,y3]=[cx+r*Math.cos(a2), cy+r*Math.sin(a2)];
+      const [x4,y4]=[cx+r*Math.cos(a1), cy+r*Math.sin(a1)];
+      svg.append(svgEl('path', {
+        d:`M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${x3},${y3} A${r},${r} 0 ${large},0 ${x4},${y4}Z`,
+        fill: seg.color
+      }));
+      angle += sweep;
+    });
+
+    svg.append(
+      svgTxt('text', { x:cx, y:cy+1, 'text-anchor':'middle', 'dominant-baseline':'middle', fill:'#dceeff', 'font-size':15, 'font-weight':800 }, '7'),
+      svgTxt('text', { x:cx, y:cy+16, 'text-anchor':'middle', fill:'#334d68', 'font-size':9 }, 'bonds')
+    );
+
+    const legend = document.getElementById('donutLegend');
+    alloc.forEach(seg => {
+      const row = document.createElement('div');
+      row.className = 'legend-row';
+      row.innerHTML = `<span class="legend-dot" style="background:${seg.color}"></span>
+        <span>${seg.label}</span><span class="legend-pct">${seg.pct}%</span>`;
+      legend.appendChild(row);
+    });
+  })();
+
+  // ── Bond Table ────────────────────────────────────────────────────────────────
+  const bonds = [
+    { issuer:'US Treasury', type:'gov',  coupon:4.250, maturity:'2026-05-31', price: 98.92, ytm:4.85, dur:1.82, val:245300 },
+    { issuer:'US Treasury', type:'gov',  coupon:3.875, maturity:'2028-08-15', price: 96.45, ytm:4.65, dur:3.71, val:192900 },
+    { issuer:'US Treasury', type:'gov',  coupon:4.625, maturity:'2033-05-15', price:100.65, ytm:4.55, dur:7.82, val:301950 },
+    { issuer:'JPMorgan',    type:'corp', coupon:4.500, maturity:'2025-12-15', price: 99.45, ytm:5.10, dur:0.95, val:198900 },
+    { issuer:'Apple Inc',   type:'corp', coupon:3.000, maturity:'2027-02-09', price: 95.80, ytm:4.80, dur:2.58, val:143700 },
+    { issuer:'Microsoft',   type:'corp', coupon:2.525, maturity:'2028-06-01', price: 92.35, ytm:4.70, dur:3.88, val:138525 },
+    { issuer:'NY Muni',     type:'muni', coupon:3.500, maturity:'2029-07-01', price: 98.20, ytm:3.90, dur:4.82, val: 98200 },
+  ];
+
+  const BC = { gov:'b-gov', corp:'b-corp', muni:'b-muni' };
+  const BL = { gov:'Gov',   corp:'Corp',   muni:'Muni'   };
+
+  function renderTable(flash = false) {
+    const avg = bonds.reduce((s,b) => s+b.ytm, 0) / bonds.length;
+    const tbody = document.getElementById('bondTbody');
+    tbody.innerHTML = '';
+    bonds.forEach((b, i) => {
+      const ytmColor = b.ytm > avg ? '#f87171' : '#34d399';
+      const tr = document.createElement('tr');
+      if (flash && i === bonds.length-1) tr.className = 'new-row';
+      tr.innerHTML = `
+        <td class="issuer">${b.issuer}</td>
+        <td><span class="badge ${BC[b.type]}">${BL[b.type]}</span></td>
+        <td class="r">${b.coupon.toFixed(3)}%</td>
+        <td class="r">${b.maturity}</td>
+        <td class="r">${b.price.toFixed(2)}</td>
+        <td class="r" style="color:${ytmColor};font-weight:600">${b.ytm.toFixed(2)}%</td>
+        <td class="r">${b.dur.toFixed(2)}</td>
+        <td class="r">$${b.val.toLocaleString()}</td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('tblCount').textContent =
+      bonds.length + ' position' + (bonds.length !== 1 ? 's' : '');
+  }
+
+  renderTable();
+
+  // ── Bond Calculator ───────────────────────────────────────────────────────────
+  let lastCalc = null;
+
+  // Newton-Raphson YTM solver — returns periodic yield
+  function solveYTM(price, cpn, periods, face) {
+    let y = Math.max((cpn*periods + face - price) / (periods*(face+price)/2) / periods, 1e-6);
+    for (let i = 0; i < 300; i++) {
+      let pv=0, dpv=0;
+      for (let t=1; t<=periods; t++) {
+        const d = Math.pow(1+y, t);
+        pv  += cpn/d;  dpv -= t*cpn/(d*(1+y));
+      }
+      const dN = Math.pow(1+y, periods);
+      pv  += face/dN;  dpv -= periods*face/(dN*(1+y));
+      const f = pv - price;
+      if (Math.abs(f) < 1e-10 || Math.abs(dpv) < 1e-15) break;
+      y -= f/dpv;
+    }
+    return y;
+  }
+
+  function yearsUntil(d) {
+    return (new Date(d) - new Date()) / (365.25*24*3600*1000);
+  }
+
+  function showError(msg) {
+    const e = document.getElementById('calcError');
+    e.textContent = msg; e.style.display = msg ? 'inline' : 'none';
+    if (msg) document.getElementById('calcResults').style.display = 'none';
+  }
+
+  function calculateBond() {
+    showError('');
+    const issuer    = document.getElementById('cIssuer').value.trim() || 'Unknown';
+    const type      = document.getElementById('cType').value;
+    const face      = parseFloat(document.getElementById('cFace').value);
+    const couponPct = parseFloat(document.getElementById('cCoupon').value);
+    const matDate   = document.getElementById('cMaturity').value;
+    const price     = parseFloat(document.getElementById('cPrice').value);
+    const freq      = parseInt(document.getElementById('cFreq').value);
+    const notional  = parseFloat(document.getElementById('cNotional').value);
+
+    if (!matDate)                   return showError('Maturity date is required.');
+    if (isNaN(couponPct))           return showError('Coupon rate is required.');
+    if (isNaN(price)||price<=0)     return showError('Price must be greater than 0.');
+    if (isNaN(face)||face<=0)       return showError('Face value must be greater than 0.');
+    if (isNaN(notional)||notional<=0) return showError('Notional must be greater than 0.');
+
+    const years = yearsUntil(matDate);
+    if (years <= 0) return showError('Maturity date must be in the future.');
+
+    const periods = Math.max(1, Math.round(years * freq));
+    const cpn     = (couponPct/100 * face) / freq;
+    const yP      = solveYTM(price, cpn, periods, face);
+    const ytm     = yP * freq * 100;
+
+    let wN=0, wD=0;
+    for (let t=1; t<=periods; t++) {
+      const pv = cpn / Math.pow(1+yP, t);
+      wN += (t/freq)*pv; wD += pv;
+    }
+    const pvF = face / Math.pow(1+yP, periods);
+    wN += (periods/freq)*pvF; wD += pvF;
+    const mac = wN/wD;
+    const mod = mac/(1+yP);
+    const dv01= mod*(price/face)*notional*0.0001;
+
+    document.getElementById('resYTM').textContent    = ytm.toFixed(4)+'%';
+    document.getElementById('resMacDur').textContent = mac.toFixed(4)+' yrs';
+    document.getElementById('resModDur').textContent = mod.toFixed(4)+' yrs';
+    document.getElementById('resDV01').textContent   = '$'+dv01.toFixed(2);
+    document.getElementById('calcResults').style.display = 'flex';
+
+    lastCalc = {
+      issuer, type,
+      coupon: couponPct, maturity: matDate, price,
+      ytm:  parseFloat(ytm.toFixed(2)),
+      dur:  parseFloat(mod.toFixed(2)),
+      val:  Math.round((price/face)*notional),
+    };
+  }
+
+  function addToHoldings() {
+    if (!lastCalc) return;
+    bonds.push({...lastCalc});
+    renderTable(true);
+    document.getElementById('holdingsPanel').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+</script>
+
+</body>
+</html>
